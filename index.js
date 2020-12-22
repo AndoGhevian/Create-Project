@@ -4,8 +4,10 @@ const path = require('path')
 
 const execa = require('execa')
 const fsExtra = require('fs-extra')
-const npmUserPackages = require('npm-user-packages')
-
+async function npmUserPackages(username) {
+  const { stdout } = await execa.commandSync(`npm search --json ${username}`)
+  return JSON.parse(stdout)
+}
 
 const { program } = require('commander');
 
@@ -43,7 +45,7 @@ async function main() {
   program.parse()
   if (program.template) {
     try {
-      const templateName = program.template[0].trim()
+      const templateName = program.template.trim()
       const templateFullName = `${scope}/cpj-template` + (!templateName.length || templateName === '-' ? '' : `-${templateName}`)
       if (username === null) {
         console.warn('Please specify scope for templates!')
@@ -52,6 +54,7 @@ async function main() {
       const packages = await npmUserPackages(username)
       const templateInfo = packages.find(pack => pack.name === templateFullName)
       if (!templateInfo || !templateInfo.links['npm']) {
+        // console.log(templateInfo)
         console.warn(`Template: "${templateName}" not exists under scope: "${scope}"`)
         process.exit(3)
       }
@@ -125,11 +128,8 @@ function isValidScope(val) {
 async function createProject(templateFullName, projectPath) {
   const CWD = process.cwd()
 
-  console.log(templateFullName);
-  console.log(porject)
-
   if (!path.isAbsolute(projectPath)) {
-    project = path.join(CWD, projectPath)
+    projectPath = path.join(CWD, projectPath)
   }
   try {
     mkdirp(projectPath, {
@@ -148,7 +148,7 @@ async function createProject(templateFullName, projectPath) {
     process.exit(12)
   }
 
-  const templatePath = path.join(projectPath, `./node_modules/${templateFullName}/template`),
+  const templatePath = path.join(projectPath, `./node_modules/${templateFullName}/template`)
   try {
     copy(
       templatePath,
