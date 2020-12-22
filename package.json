@@ -1,8 +1,9 @@
 {
-  "name": "create-project",
+  "name": "@ando_ghevian/create-project",
   "version": "1.0.0",
   "description": "organization scoped create-project cli tool",
   "main": "index.js",
+  "private": false,
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
