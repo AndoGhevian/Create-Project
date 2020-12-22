@@ -5,7 +5,10 @@ const path = require('path')
 const execa = require('execa')
 const fsExtra = require('fs-extra')
 async function npmUserPackages(username) {
-  const { stdout } = await execa.commandSync(`npm search --json ${username}`)
+  const { exitCode, stdout, stderr } = await execa.commandSync(`npm search --json ${username}`)
+  if (exitCode) {
+    throw new Error(stderr)
+  }
   return JSON.parse(stdout)
 }
 
@@ -16,10 +19,13 @@ const { program } = require('commander');
 const readJson = fsExtra.readJsonSync
 const writeJson = fsExtra.writeJSONSync
 
+const readFile = fsExtra.readFileSync
+const writeFile = fsExtra.writeFileSync
+const exists = fsExtra.existsSync
 const mkdirp = fsExtra.mkdirpSync
 const copy = fsExtra.copySync
 const move = fsExtra.moveSync
-const exists = fsExtra.existsSync
+const remove = fsExtra.removeSync
 
 async function main() {
   program.version('0.0.1')
@@ -87,16 +93,6 @@ async function main() {
         process.exit(5)
       }
 
-      // const username = newScope.replace('@', '')
-      // console.log(username)
-      // try {
-      //   const userInfo = await npmUser(username)
-      // } catch (err) {
-      //   console.log(err)
-      //   console.warn(`user: "${username}" not exists.`)
-      //   process.exit(3)
-      // }
-
       scope = newScope
       data = { scope }
       writeJson(dataJsonPath, data)
@@ -119,6 +115,7 @@ async function main() {
 
 main()
 
+
 function isValidScope(val) {
   const scopeRegex = /^@[a-zA-Z0-9_\.\-]*$/
   return scopeRegex.test(val)
@@ -131,6 +128,8 @@ async function createProject(templateFullName, projectPath) {
   if (!path.isAbsolute(projectPath)) {
     projectPath = path.join(CWD, projectPath)
   }
+  // console.log(templateFullName)
+  // console.log(projectPath)
   try {
     mkdirp(projectPath, {
       recursive: true
@@ -140,67 +139,99 @@ async function createProject(templateFullName, projectPath) {
     process.exit(11)
   }
 
-  let { exitCode, stderr } = execa.commandSync(`npm i ${templateFullName}`, {
+  // console.log('hey')
+  let { exitCode, stderr } = execa.commandSync(`npm install ${templateFullName}`, {
     cwd: projectPath,
   })
-  if (!exitCode) {
+  if (exitCode) {
     console.warn(stderr)
+    process.exit(20)
+  }
+  // console.log('bey')
+
+  const templatePath = path.join(projectPath, `./node_modules/${templateFullName}`)
+  try {
+    copy(
+      path.join(templatePath, './template'),
+      projectPath,
+    )
+  } catch (err) {
+    // console.log(err)
+    console.warn(`Can not create project from template: ${templateFullName}`)
     process.exit(12)
   }
 
-  const templatePath = path.join(projectPath, `./node_modules/${templateFullName}/template`)
-  try {
-    copy(
-      templatePath,
-      path.join(projectPath),
-    )
-  } catch (err) {
-    console.warn(`Can not create project from template: ${templateFullName}`)
-    process.exit(13)
-  }
-
+  // console.log('mey')
   move(
     path.join(projectPath, './gitignore'),
     path.join(projectPath, './.gitignore')
   )
 
-  const exists = exists(`${projectPath}/package.json`)
-  if (!exists) {
-    execa.commandSync('npm init -y', {
-      cwd: CWD
-    })
+  const packageJsonExists = exists(path.join(projectPath, `./package.json`))
+  if (packageJsonExists) {
+    remove(path.join(projectPath, `./package.json`))
   }
 
-  const packageJsonData = readJson(path.join(projectPath, './package.json'))
+  (
+    { exitCode, stderr } = execa.commandSync('npm init -y', {
+      cwd: projectPath,
+    })
+  )
+  if (exitCode) {
+    console.warn(stderr)
+    process.exit(20)
+  }
+  // console.log('cey')
+
+  let packageJsonData = readJson(path.join(projectPath, './package.json'))
 
   const templateData = readJson(path.join(templatePath, './template.json'))
-
-  const dependencies = (templateData.packages ?? {}).dependencies
+  // console.log('joi')
+  const dependencies = (templateData.package ?? {}).dependencies
   packageJsonData.dependencies = {
     ...(packageJsonData.dependencies ?? {}),
     ...(dependencies ?? {})
   }
-  const devDependencies = (templateData.packages ?? {}).devDependencies
+  // console.log('voi')
+  const devDependencies = (templateData.package ?? {}).devDependencies
   packageJsonData.devDependencies = {
     ...(packageJsonData.devDependencies ?? {}),
     ...(devDependencies ?? {})
   }
-  delete templateData.packages.dependencies
-  delete templateData.packages.devDependencies
+  // console.log('toii')
+  // console.log(templateData)
+  delete templateData.package.dependencies
+  delete templateData.package.devDependencies
 
+  // console.log('noii')
   packageJsonData = {
     ...packageJsonData,
-    ...templateData.packages,
+    ...templateData.package,
   }
-  writeJson(path.join(projectPath, './package.json', packageJsonData))
+  writeJson(path.join(projectPath, './package.json'), packageJsonData)
 
   fsExtra.removeSync(path.join(projectPath, `./node_modules`))
-  fsExtra.removeSync(projectPath, './package-lock.json')
+  fsExtra.removeSync(path.join(projectPath, './package-lock.json'))
 
   try {
-    execa.commandSync('npm install', {
-      cwd: CWD
-    })
+    const str = readFile(path.join(projectPath, './README.md')).toString()
+    const changedStr = str.replace(new RegExp('\{\{ProjectName\}\}', 'g'), path.basename(projectPath))
+    writeFile(path.join(projectPath, './README.md'), changedStr)
+  } catch(err) {
+    // console.log(err)
+    // console.log('err')
+   }
+  // console.log('goi')
+  try {
+    (
+      { exitCode, stderr } = execa.commandSync('npm install', {
+        cwd: projectPath,
+      })
+    )
+    if (exitCode) {
+      console.warn(stderr)
+      process.exit(20)
+    }
     console.info('Project successfully set up!:)')
   } catch (err) {
     console.warn('You need to run npm install manually!')
