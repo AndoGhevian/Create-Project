@@ -1,6 +1,6 @@
 {
   "name": "@ando_ghevian/create-project",
-  "version": "1.0.6",
+  "version": "1.0.7",
   "description": "organization scoped create-project cli tool",
   "main": "index.js",
   "bin": "index.js",
