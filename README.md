@@ -23,6 +23,7 @@ Steps For npx:
 
 ## How to create Templates
 It's similar to [create-react-app Custom Templates](https://create-react-app.dev/docs/custom-templates/#building-a-template). Just few differences:
+1. Templates must be scoped to **organization** or **user** and fit the format **cpj-template[-templatename]**, where **cpj-template** will be used as default if **--template(-t)** is specified without value.
 1. Default Key/Value Pairs of created projects **package.json** file, come from `npm init -y` command, and anything you specify in **template.json** in **/package** property, will replace default ones.
 1. You **MUST NOT** specify **package.json**, **package-lock.json** and **node_modules/** in template folder.
 1. And Currently We will replace all **{{ProjectName}}** occurrences in README.md with your project name.
