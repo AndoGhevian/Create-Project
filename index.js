@@ -3,6 +3,8 @@
 const path = require('path')
 
 const fsExtra = require('fs-extra')
+const ora = require('ora');
+const c = require('ansi-colors');
 
 const createProject = require('./createProject')
 const {
@@ -11,8 +13,8 @@ const {
 } = require('./utils')
 
 
-const readJson = fsExtra.readJsonSync
-const writeJson = fsExtra.writeJSONSync
+const readJson = fsExtra.readJson
+const writeJson = fsExtra.writeJSON
 
 const { program } = require('commander');
 
@@ -22,7 +24,7 @@ async function main() {
   const useScopeHandler = (newScope, projects, options) => {
 
     if (!isValidScope(newScope)) {
-      console.warn('Invalid scope provided!')
+      console.warn(c.red('Invalid scope provided!'))
       process.exit(5)
     }
 
@@ -30,7 +32,7 @@ async function main() {
     project = projects[0]
     scope = newScope
     username = scope.replace('@', '')
-    console.info(scope)
+    console.info(c.cyanBright(scope))
   }
 
 
@@ -38,13 +40,13 @@ async function main() {
   let data
   try {
     try {
-      data = readJson(dataJsonPath)
+      data = await readJson(dataJsonPath)
     } catch (err) {
       data = { scope: '' }
-      writeJson(dataJsonPath, data)
+      await writeJson(dataJsonPath, data)
     }
   } catch (err) {
-    console.warn('Please Reinstall the package: npm install -g @ando_ghevian/create-project')
+    console.warn(c.red('Please Reinstall the package: npm install -g @ando_ghevian/create-project'))
     process.exit(1)
   }
   scope = typeof data.scope !== 'string' ? '' : data.scope
@@ -60,14 +62,14 @@ async function main() {
     .action((projects, options) => {
       isRun = true
       if (!scope) {
-        console.warn('No scope specified!')
+        console.warn(c.red('No scope specified!'))
         program.help()
       }
       // if (!options.template) {
       //   console.warn('No Template specified!')
       //   program.help()
       // }
-      
+
       template = options.template
       project = projects[0]
       username = scope.replace('@', '')
@@ -90,11 +92,11 @@ async function main() {
     .usage('<scope> [options project]')
     .description('Set scope for create-project, to pull tempalates from.')
     .option('-t, --template [value]', 'Project Template scoped to specified user(org)', '')
-    .action((newScope, projects, options) => {
+    .action(async (newScope, projects, options) => {
       project = projects[0]
 
       if (!isValidScope(newScope)) {
-        console.warn('Invalid scope provided!')
+        console.warn(c.red('Invalid scope provided!'))
         process.exit(5)
       }
 
@@ -104,16 +106,16 @@ async function main() {
       username = scope.replace('@', '')
 
       data = { scope }
-      writeJson(dataJsonPath, data)
+      await writeJson(dataJsonPath, data)
 
-      console.info(scope)
+      console.info(c.cyanBright(scope))
     })
 
   scopeCmd
     .command('get')
     .description('Get current scope from which it pull tempalates.')
     .action(() => {
-      console.info(scope)
+      console.info(c.cyanBright(scope))
       process.exit()
     })
 
@@ -124,7 +126,7 @@ async function main() {
     .option('-t, --template [value]', 'Project Template scoped to specified user(org)', '')
     .action(useScopeHandler)
 
-  program.parse(process.argv)
+  await program.parseAsync(process.argv)
   // console.log('template')
   // console.log(template)
   // console.log()
@@ -139,8 +141,8 @@ async function main() {
   try {
     // console.log('processingBefore->')
     if (!project) {
-      if(isRun || process.argv.includes('-t') || process.argv.includes('-template')) {
-        console.warn('Please Specify project name to create with template!')
+      if (isRun || process.argv.includes('-t') || process.argv.includes('-template')) {
+        console.warn(c.yellow('Please Specify project name to create with template!'))
         program.help()
       }
       process.exit()
@@ -149,21 +151,30 @@ async function main() {
     const templateName = template.trim()
     const templateFullName = `${scope}/cpj-template` + (!templateName.length || templateName === '-' ? '' : `-${templateName}`)
     if (username === null) {
-      console.warn('Please specify scope for templates!')
+      console.warn(c.red('Please specify scope for templates!'))
       process.exit(2)
     }
-    const packages = await npmUserPackages(username)
-    const templateInfo = packages.find(pack => pack.name === templateFullName)
-    if (!templateInfo || !templateInfo.links['npm']) {
-      // console.log(templateInfo)
-      console.warn(`Template: "${templateFullName}" not exists!`)
+    let spinner = ora(`Loading ${c.green(scope)} packages`).start();
+    try {
+
+      const packages = await npmUserPackages(username)
+
+      const templateInfo = packages.find(pack => pack.name === templateFullName)
+      if (!templateInfo || !templateInfo.links['npm']) {
+        // console.log(templateInfo)
+        spinner.fail(`Template: "${c.yellow(templateFullName)}" not exists!`)
+        process.exit(3)
+      }
+      spinner.succeed(`Finish loading packages of ${c.green(scope)}`)
+    } catch (err) {
+      spinner.fail(`Cant retrive "${c.yellow(scope)}" packages to check template!`)
       process.exit(3)
     }
 
     await createProject(templateFullName, project)
     process.exit()
   } catch (err) {
-    console.warn(err.message)
+    console.warn(`\n${c.red(err.message)}`)
     process.exit(10)
   }
 }

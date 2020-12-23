@@ -7,7 +7,7 @@ function isValidScope(val) {
 }
 
 async function npmUserPackages(username) {
-    const { exitCode, stdout, stderr } = await execa.commandSync(`npm search --json ${username}`)
+    const { exitCode, stdout, stderr } = await execa.command(`npm search --json ${username}`)
     if (exitCode) {
         throw new Error(stderr)
     }
