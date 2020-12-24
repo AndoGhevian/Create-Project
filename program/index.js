@@ -42,5 +42,4 @@ scopeCmd
     .option('-t, --template [value]', 'Project Template scoped to specified user(org)', '')
     .action(actions.useScope)
 
-
 module.exports = program

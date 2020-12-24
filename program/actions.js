@@ -1,3 +1,5 @@
+const { program } = require('commander');
+
 const fsExtra = require('fs-extra')
 const c = require('ansi-colors');
 
@@ -71,7 +73,6 @@ async function setScope(newScope, projects, options) {
 
     console.info(c.cyanBright(store.scope))
 }
-
 
 module.exports = {
     getScope,
