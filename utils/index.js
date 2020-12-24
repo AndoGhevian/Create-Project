@@ -15,8 +15,16 @@ async function npmUserPackages(username) {
 
 function getProtocol(val) {
     try {
-        return new URL(val).protocol
-    }catch{
+        const url = new Url(val)
+        return url.protocol
+    }catch{}
+
+    try {
+        const [protocol] = /^.*?:\/\//.exec(val)
+        const splitSlashes = protocol.slice(0, -2)
+        return !splitSlashes || splitSlashes === ':' ? null : splitSlashes
+    } catch (err) {
+        console.log(err)
         return null
     }
 }
