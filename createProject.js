@@ -5,6 +5,11 @@ const fsExtra = require('fs-extra')
 const ora = require('ora');
 const c = require('ansi-colors');
 
+const {
+    getProtocol,
+} = require('./utils')
+
+
 const readJson = fsExtra.readJson
 const writeJson = fsExtra.writeJSON
 
@@ -19,16 +24,15 @@ const move = fsExtra.move
 const remove = fsExtra.remove
 
 
-module.exports = async function createProject(templateFullName, projectPath) {
+module.exports = async function createProject(packageInstallUri, projectPath, isNpmPackage) {
     const CWD = process.cwd()
 
-    let spinner
+    let spinner, exitCode, stderr
 
     if (!path.isAbsolute(projectPath)) {
         projectPath = path.join(CWD, projectPath)
     }
-    // console.log(templateFullName)
-    // console.log(projectPath)
+
     const projectExists = await exists(projectPath)
     if (projectExists) {
         console.warn(c.red(`Project folder: ${c.yellow(path.basename(projectPath))} allready exists!`))
@@ -44,31 +48,67 @@ module.exports = async function createProject(templateFullName, projectPath) {
         process.exit(11)
     }
 
-    // console.log('hey')
-    spinner = ora(`Installing Template: "${templateFullName}"`).start()
-    let { exitCode, stderr } = await execa.command(`npm install ${templateFullName}`, {
+    ({ exitCode, stderr } = await execa.command('npm init -y', {
         cwd: projectPath,
-    })
+    }))
     if (exitCode) {
+        try {
+            await remove(projectPath)
+        } catch { }
+        console.warn(`${c.red(stderr)}`)
+        process.exit(20)
+    }
+
+    let normalizedInstallUri = packageInstallUri
+    if (getProtocol(packageInstallUri) === 'file:') {
+        const tmpPath = packageInstallUri.replace('file:', '')
+        if (!path.isAbsolute(tmpPath)) {
+            normalizedInstallUri = path.join(CWD, tmpPath)
+        }
+    }
+    spinner = ora(`Installing Template: "${packageInstallUri}"`).start();
+    ({ exitCode, stderr } = await execa.command(`npm install ${normalizedInstallUri}`, {
+        cwd: projectPath,
+    }))
+    if (exitCode) {
+        try {
+            await remove(projectPath)
+        } catch { }
         spinner.fail(stderr)
         process.exit(20)
     }
     spinner.succeed('Finish Installing Template')
     // console.log('bey')
 
-    const templatePath = path.join(projectPath, `./node_modules/${templateFullName}`)
-    spinner = ora(`Coping Template...`).start();
+    let packageFullName, templatePath
+    spinner = ora(`Coping Template...`).start()
     try {
+        const packageJson = await readJson(path.join(projectPath, './package.json'))
+        packageFullName = Object.keys(packageJson['dependencies'])[0]
+        templatePath = path.join(projectPath, `./node_modules/${packageFullName}`)
+        await remove(path.join(projectPath, './package.json'))
+        await remove(path.join(projectPath, './package-lock.json'))
 
+        const ignore = {
+            packageJson: path.join(templatePath, './package.json'),
+            packageLockJson: path.join(templatePath, './package-lock.json'),
+            node_modules: path.join(templatePath, './node_modules'),
+        }
+        // console.log(templatePath)
         await copy(
             path.join(templatePath, './template'),
             projectPath,
+            {
+                dereference: true,
+                filter: (src) => Object.values(ignore).every(p => src !== p),
+            }
         )
         spinner.succeed('Successfully Finish Template Coping');
     } catch (err) {
-        // console.log('err.message')
-        // console.log(err.message)
-        spinner.fail(`Can not create project from template: ${templateFullName}`);
+        try {
+            await remove(projectPath)
+        } catch { }
+        spinner.fail(`Can not create project from template: ${packageInstallUri}`);
         process.exit(12)
     }
 
@@ -81,29 +121,27 @@ module.exports = async function createProject(templateFullName, projectPath) {
         )
     } catch { }
 
-    const packageJsonExists = await exists(path.join(projectPath, `./package.json`))
-    if (packageJsonExists) {
-        await remove(path.join(projectPath, `./package.json`))
-    }
-
-    (
-        { exitCode, stderr } = await execa.command('npm init -y', {
-            cwd: projectPath,
-        })
-    )
+    ({ exitCode, stderr } = await execa.command('npm init -y', {
+        cwd: projectPath,
+    }))
     if (exitCode) {
+        try {
+            await remove(projectPath)
+        } catch { }
         spinner.fail()
         console.warn(`${c.red(stderr)}`)
         process.exit(20)
     }
     // console.log('cey')
 
-    let packageJsonData, templateData
+    let packageJson, templateData
     try {
-        packageJsonData = await readJson(path.join(projectPath, './package.json'))
-
+        packageJson = await readJson(path.join(projectPath, './package.json'))
         templateData = await readJson(path.join(templatePath, './template.json'))
     } catch (err) {
+        try {
+            await remove(projectPath)
+        } catch { }
         spinner.fail()
         console.warn(c.red(`Unable to copy package config from ${c.yellow('template.json')}`))
         process.exit(13)
@@ -111,14 +149,14 @@ module.exports = async function createProject(templateFullName, projectPath) {
 
     // console.log('joi')
     const dependencies = (templateData.package ?? {}).dependencies
-    packageJsonData.dependencies = {
-        ...(packageJsonData.dependencies ?? {}),
+    packageJson.dependencies = {
+        ...(packageJson.dependencies ?? {}),
         ...(dependencies ?? {})
     }
     // console.log('voi')
     const devDependencies = (templateData.package ?? {}).devDependencies
-    packageJsonData.devDependencies = {
-        ...(packageJsonData.devDependencies ?? {}),
+    packageJson.devDependencies = {
+        ...(packageJson.devDependencies ?? {}),
         ...(devDependencies ?? {})
     }
     // console.log('toii')
@@ -127,29 +165,31 @@ module.exports = async function createProject(templateFullName, projectPath) {
     delete templateData.package.devDependencies
 
     // console.log('noii')
-    packageJsonData = {
-        ...packageJsonData,
+    packageJson = {
+        ...packageJson,
         ...templateData.package,
     }
     try {
-        await writeJson(path.join(projectPath, './package.json'), packageJsonData)
+        await writeJson(path.join(projectPath, './package.json'), packageJson)
     } catch (err) {
+        try {
+            await remove(projectPath)
+        } catch { }
         spinner.fail()
         console.warn(c.red(`Unable to copy package config from ${c.yellow('template.json')}`))
         process.exit(13)
     }
 
-    await remove(path.join(projectPath, `./node_modules`))
-    await remove(path.join(projectPath, './package-lock.json'))
+    try {
+        await remove(path.join(projectPath, `./node_modules`))
+    } catch { }
 
     try {
-        const str = await readFile(path.join(projectPath, './README.md')).toString()
+        const str = (await readFile(path.join(projectPath, './README.md'))).toString()
         const changedStr = str.replace(new RegExp('\{\{ProjectName\}\}', 'g'), path.basename(projectPath))
         await writeFile(path.join(projectPath, './README.md'), changedStr)
     } catch (err) {
-        console.warn(c.yellow(`\nUnable to modifie {{ProjectName}}'s to "${path.basename(projectPath)}"`))
-        // console.log(err)
-        // console.log('err')
+        console.warn(c.yellow(`\nUnable to modifie {{ProjectName}}'s in README.md to "${path.basename(projectPath)}"`))
     }
     // console.log('goi')
     ({ exitCode, stderr } = await execa.command('npm install', {
