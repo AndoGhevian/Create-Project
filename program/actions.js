@@ -1,3 +1,5 @@
+const path= require('path');
+
 const { program } = require('commander');
 
 const fsExtra = require('fs-extra')
@@ -12,6 +14,8 @@ const {
 
 const writeJson = fsExtra.writeJSON
 
+
+const dataJsonPath = path.join(__dirname, '../data.json')
 
 function run(projects, options) {
     store.isRun = true
@@ -48,7 +52,7 @@ function useScope(newScope, projects, options) {
     store.template = options.template.trim()
     store.project = projects[0]
     store.scope = newScope
-    store.username = scope.replace('@', '')
+    store.username = store.scope.replace('@', '')
     console.info(c.cyanBright(store.scope))
 }
 
@@ -61,7 +65,7 @@ async function setScope(newScope, projects, options) {
     store.template = options.template.trim()
     store.project = projects[0]
     store.scope = newScope
-    store.username = scope.replace('@', '')
+    store.username = store.scope.replace('@', '')
 
     const data = { scope: store.scope }
     try {

@@ -49,6 +49,7 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
     }
 
     ({ exitCode, stderr } = await execa.command('npm init -y', {
+        reject: false,
         cwd: projectPath,
     }))
     if (exitCode) {
@@ -68,6 +69,7 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
     }
     spinner = ora(`Installing Template: "${packageInstallUri}"`).start();
     ({ exitCode, stderr } = await execa.command(`npm install ${normalizedInstallUri}`, {
+        reject: false,
         cwd: projectPath,
     }))
     if (exitCode) {
@@ -122,6 +124,7 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
     } catch { }
 
     ({ exitCode, stderr } = await execa.command('npm init -y', {
+        reject: false,
         cwd: projectPath,
     }))
     if (exitCode) {
@@ -193,6 +196,7 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
     }
     // console.log('goi')
     ({ exitCode, stderr } = await execa.command('npm install', {
+        reject: false,
         cwd: projectPath,
     }))
     spinner.succeed(`Project: "${path.basename(projectPath)}" successfully set up!:)`)

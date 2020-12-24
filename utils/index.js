@@ -6,7 +6,13 @@ function isValidScope(val) {
 }
 
 async function npmUserPackages(username) {
-    const { exitCode, stdout, stderr } = await execa.command(`npm search --json ${username}`)
+    const {
+        exitCode,
+        stdout,
+        stderr
+    } = await execa.command(`npm search --json ${username}`, {
+        reject: false,
+    })
     if (exitCode) {
         throw new Error(stderr)
     }
@@ -15,16 +21,15 @@ async function npmUserPackages(username) {
 
 function getProtocol(val) {
     try {
-        const url = new Url(val)
+        const url = new URL(val)
         return url.protocol
-    }catch{}
+    } catch { }
 
     try {
         const [protocol] = /^.*?:\/\//.exec(val)
         const splitSlashes = protocol.slice(0, -2)
         return !splitSlashes || splitSlashes === ':' ? null : splitSlashes
     } catch (err) {
-        console.log(err)
         return null
     }
 }
