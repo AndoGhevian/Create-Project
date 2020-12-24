@@ -20,17 +20,18 @@ You can also use another scope when creating project:
 You can create project when setting **scope**:
 - `create-project scope set @ando_ghevan -t npm-package my-package`
 
-You can also use templates from url, and in this case you dont need any **scope** to be set.
-- `create-project -t git@github.com:AndoGhevian/cpj-template-npm-package.git proj`
+You can also use templates from url, and in this case you dont need any **scope** to be set. 
+- `create-project -t git+https://git@github.com:AndoGhevian/cpj-template-npm-package.git proj`
+> **WORNING: Be shore that you specify protocol!!!**
 
-You can just test your local **Templates(See below "How to create Templates")**:
+You can just test your local **Templates**:
 - `create-project -t file:../../MyTemplate prj`
 - `create-project -t file:/path/from/root/to/template prj`
-
+> NOTE: See below **"How to create Templates"**
 ### NPX
 Steps For npx:
 - `npx @ando_ghevian/create-project use @Scope --template tmp prj`
-- `npx @ando_ghevian/create-project -t git@github.com:AndoGhevian/cpj-template-npm-package.git proj`
+- `npx @ando_ghevian/create-project -t git+https://git@github.com:AndoGhevian/cpj-template-npm-package.git proj`
 
 ## How to create Templates
 It's similar to [create-react-app Custom Templates][cra-custom-templates]. Just few differences:
