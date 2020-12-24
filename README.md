@@ -30,6 +30,7 @@ You can just test your local **Templates(See below "How to create Templates")**:
 ### NPX
 Steps For npx:
 - `npx @ando_ghevian/create-project use @Scope --template tmp prj`
+- `npx @ando_ghevian/create-project -t git@github.com:AndoGhevian/cpj-template-npm-package.git proj`
 
 ## How to create Templates
 It's similar to [create-react-app Custom Templates][cra-custom-templates]. Just few differences:
