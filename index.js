@@ -20,10 +20,15 @@ const program = require('./program')
 const readJson = fsExtra.readJson
 const writeJson = fsExtra.writeJSON
 
+const mkdirp = fsExtra.mkdirp
+const exists = fsExtra.pathExists
+
 
 
 
 async function main() {
+  const CWD = process.cwd()
+
   const dataJsonPath = path.join(__dirname, './data.json')
   let data
   try {
@@ -44,12 +49,14 @@ async function main() {
   try {
     const {
       template,
-      project,
       scope,
       username,
 
       isRun,
       isFile,
+    } = store
+    let {
+      project
     } = store
 
     if (!project) {
@@ -58,6 +65,25 @@ async function main() {
         program.help()
       }
       process.exit()
+    }
+
+    if (!path.isAbsolute(project)) {
+      project = path.join(CWD, project)
+    }
+
+    const projectExists = await exists(project)
+    if (projectExists) {
+      console.warn(c.red(`Project folder: ${c.yellow(project)} allready exists!`))
+      process.exit(11)
+    }
+
+    try {
+      await mkdirp(project, {
+        recursive: true,
+      })
+    } catch (err) {
+      console.warn(c.red(`Can not create project folder: ${project}`))
+      process.exit(11)
     }
 
     let isNpmPackage = false

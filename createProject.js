@@ -15,9 +15,6 @@ const writeJson = fsExtra.writeJSON
 
 const readFile = fsExtra.readFile
 const writeFile = fsExtra.writeFile
-const mkdirp = fsExtra.mkdirp
-
-const exists = fsExtra.pathExists
 
 const copy = fsExtra.copy
 const move = fsExtra.move
@@ -28,25 +25,6 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
     const CWD = process.cwd()
 
     let spinner, exitCode, stderr
-
-    if (!path.isAbsolute(projectPath)) {
-        projectPath = path.join(CWD, projectPath)
-    }
-
-    const projectExists = await exists(projectPath)
-    if (projectExists) {
-        console.warn(c.red(`Project folder: ${c.yellow(path.basename(projectPath))} allready exists!`))
-        process.exit(11)
-    }
-
-    try {
-        await mkdirp(projectPath, {
-            recursive: true
-        })
-    } catch (err) {
-        console.warn(c.red(`Can not create project folder: ${projectPath}`))
-        process.exit(11)
-    }
 
     ({ exitCode, stderr } = await execa.command('npm init -y', {
         reject: false,
@@ -82,12 +60,16 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
     spinner.succeed('Finish Installing Template')
     // console.log('bey')
 
-    let packageFullName, templatePath
+    let packageFullName, templatePath, templateJson;
     spinner = ora(`Coping Template...`).start()
     try {
         const packageJson = await readJson(path.join(projectPath, './package.json'))
+
         packageFullName = Object.keys(packageJson['dependencies'])[0]
+
         templatePath = path.join(projectPath, `./node_modules/${packageFullName}`)
+        templateJson = await readJson(path.join(templatePath, './template.json'))
+
         await remove(path.join(projectPath, './package.json'))
         await remove(path.join(projectPath, './package-lock.json'))
 
@@ -114,6 +96,10 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
         process.exit(12)
     }
 
+    try {
+        await remove(path.join(projectPath, `./node_modules`))
+    } catch { }
+    
     // console.log('mey')
     spinner = ora('Doing Some initialization Stuff...').start()
     try {
@@ -137,10 +123,9 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
     }
     // console.log('cey')
 
-    let packageJson, templateData
+    let packageJson
     try {
         packageJson = await readJson(path.join(projectPath, './package.json'))
-        templateData = await readJson(path.join(templatePath, './template.json'))
     } catch (err) {
         try {
             await remove(projectPath)
@@ -151,26 +136,26 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
     }
 
     // console.log('joi')
-    const dependencies = (templateData.package ?? {}).dependencies
+    const dependencies = (templateJson.package ?? {}).dependencies
     packageJson.dependencies = {
         ...(packageJson.dependencies ?? {}),
         ...(dependencies ?? {})
     }
     // console.log('voi')
-    const devDependencies = (templateData.package ?? {}).devDependencies
+    const devDependencies = (templateJson.package ?? {}).devDependencies
     packageJson.devDependencies = {
         ...(packageJson.devDependencies ?? {}),
         ...(devDependencies ?? {})
     }
     // console.log('toii')
-    // console.log(templateData)
-    delete templateData.package.dependencies
-    delete templateData.package.devDependencies
+    // console.log(templateJson)
+    delete templateJson.package.dependencies
+    delete templateJson.package.devDependencies
 
     // console.log('noii')
     packageJson = {
         ...packageJson,
-        ...templateData.package,
+        ...templateJson.package,
     }
     try {
         await writeJson(path.join(projectPath, './package.json'), packageJson)
@@ -182,10 +167,6 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
         console.warn(c.red(`Unable to copy package config from ${c.yellow('template.json')}`))
         process.exit(13)
     }
-
-    try {
-        await remove(path.join(projectPath, `./node_modules`))
-    } catch { }
 
     try {
         const str = (await readFile(path.join(projectPath, './README.md'))).toString()
