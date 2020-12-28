@@ -69,7 +69,10 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
 
         templatePath = path.join(projectPath, `./node_modules/${packageFullName}`)
         templateJson = await readJson(path.join(templatePath, './template.json'))
-        if(!(templateJson.package instanceof Object)) {
+        if (!(templateJson.package instanceof Object)) {
+            try {
+                await remove(projectPath)
+            } catch { }
             spinner.fail('template.json does not contain "package" property!')
             process.exit(12)
         }
@@ -102,7 +105,7 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
     try {
         await remove(path.join(projectPath, `./node_modules`))
     } catch { }
-    
+
     // console.log('mey')
     spinner = ora('Doing Some initialization Stuff...').start()
     try {
