@@ -69,7 +69,10 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
 
         templatePath = path.join(projectPath, `./node_modules/${packageFullName}`)
         templateJson = await readJson(path.join(templatePath, './template.json'))
-
+        if(!(templateJson.package instanceof Object)) {
+            spinner.fail('template.json does not contain "package" property!')
+            process.exit(12)
+        }
         await remove(path.join(projectPath, './package.json'))
         await remove(path.join(projectPath, './package-lock.json'))
 
