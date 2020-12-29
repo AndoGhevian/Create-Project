@@ -92,6 +92,9 @@ async function main() {
     if (!protocol) {
       packageInstallUri = `${scope}/cpj-template` + (!template.length || template === '-' ? '' : `-${template}`)
       if (username === null) {
+        try {
+          await remove(project)
+        } catch { }
         console.warn(c.red('Please specify scope for templates!'))
         process.exit(2)
       }
@@ -103,12 +106,18 @@ async function main() {
         const templateInfo = packages.find(pack => pack.name === packageInstallUri)
         if (!templateInfo || !templateInfo.links['npm']) {
           // console.log(templateInfo)
+          try {
+            await remove(project)
+          } catch { }
           spinner.fail(`Template: "${c.yellow(packageInstallUri)}" not exists!`)
           process.exit(3)
         }
         spinner.succeed(`Finish loading packages of ${c.green(scope)}`)
         isNpmPackage = true
       } catch (err) {
+        try {
+          await remove(project)
+        } catch { }
         spinner.fail(`Cant retrive "${c.yellow(scope)}" packages to check template!`)
         process.exit(3)
       }

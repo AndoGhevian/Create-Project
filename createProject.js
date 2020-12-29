@@ -114,6 +114,12 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
             path.join(projectPath, './.gitignore')
         )
     } catch { }
+    try {
+        await move(
+            path.join(projectPath, './gitattributes'),
+            path.join(projectPath, './.gitattributes')
+        )
+    } catch { }
 
     ({ exitCode, stderr } = await execa.command('npm init -y', {
         reject: false,
@@ -178,18 +184,45 @@ module.exports = async function createProject(packageInstallUri, projectPath, is
         const str = (await readFile(path.join(projectPath, './README.md'))).toString()
         const changedStr = str.replace(new RegExp('\{\{ProjectName\}\}', 'g'), path.basename(projectPath))
         await writeFile(path.join(projectPath, './README.md'), changedStr)
+        spinner.succeed(`Finish project initialization.`);
     } catch (err) {
-        console.warn(c.yellow(`\nUnable to modifie {{ProjectName}}'s in README.md to "${path.basename(projectPath)}"`))
+        spinner.warn(`Unable to modifie {{ProjectName}}'s in README.md to "${path.basename(projectPath)}"`);
     }
+    console.info('Running Npm install.');
     // console.log('goi')
-    ({ exitCode, stderr } = await execa.command('npm install', {
+    let { exitCode: npmExitCode } = await execa.command('npm install', {
         reject: false,
         cwd: projectPath,
+        stdout: process.stdout,
+        stderr: process.stderr,
+    });
+
+    let { exitCode: gitExitCode } = await execa.command('git init', {
+        reject: false,
+        cwd: projectPath,
+        stdout: process.stdout,
+        stderr: process.stderr,
+    });
+    ({ exitCode: gitExitCode } = await execa.command('git add .', {
+        reject: false,
+        cwd: projectPath,
+        stdout: process.stdout,
+        stderr: process.stderr,
+    }));
+    ({ exitCode: gitExitCode } = await execa.command(`git commit -m "Initial Commit"`, {
+        reject: false,
+        cwd: projectPath,
+        stdout: process.stdout,
+        stderr: process.stderr,
+        shell: true,
     }))
-    spinner.succeed(`Project: "${path.basename(projectPath)}" successfully set up!:)`)
-    if (exitCode) {
-        console.warn(`\n${c.yellow(stderr)}`)
-        console.warn(c.yellow('\nYou need to run npm install manually!'))
+    if (npmExitCode) {
+        console.warn(c.yellow('\nSome Error occure during "npm install"!'))
     }
+    if (gitExitCode) {
+        console.warn(c.yellow('\nSome Error occure during git repo initialization!'))
+    }
+
+    console.info(c.green(`Project: "${path.basename(projectPath)}" successfully set up!:)`))
     process.exit()
 }
